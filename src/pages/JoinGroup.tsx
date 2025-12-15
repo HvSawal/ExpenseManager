@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { acceptInvitation } from '../api/groups';
 import { Box, Typography, CircularProgress, Button, Paper } from '@mui/material';
-import { useUI } from '../contexts/UIContext';
+
 
 const JoinGroup = () => {
     const { token } = useParams<{ token: string }>();
     const navigate = useNavigate();
-    const { showError } = useUI();
+
     const [isProcessing, setIsProcessing] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
