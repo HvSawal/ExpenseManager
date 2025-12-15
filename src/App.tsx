@@ -21,6 +21,7 @@ const Wallets = lazy(() => import('./pages/Wallets'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Tags = lazy(() => import('./pages/Tags'));
+const JoinGroup = lazy(() => import('./pages/JoinGroup'));
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,7 @@ const App = () => {
                     <Route path="wallets" element={<Wallets />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="settings" element={<Settings />} />
+                    <Route path="join/:token" element={<JoinGroup />} />
                   </Route>
 
                   <Route path="*" element={<Navigate to="/" replace />} />

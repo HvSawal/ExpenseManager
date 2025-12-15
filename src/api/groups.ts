@@ -78,7 +78,10 @@ export const getGroupMembers = async (groupId: string) => {
     return data as GroupMember[];
 };
 
-export const inviteMember = async (groupId: string, email: string) => {
+export const inviteMember = async (groupId: string, email?: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     // In a real app, this would send an email. 
     // For now, we'll just create an invitation record.
     const { data, error } = await supabase
@@ -87,11 +90,21 @@ export const inviteMember = async (groupId: string, email: string) => {
             group_id: groupId,
             email,
             token: crypto.randomUUID(),
-            status: 'pending'
+            status: 'pending',
+            created_by: user.id
         }])
         .select()
         .single();
 
     if (error) throw error;
     return data;
+};
+
+export const acceptInvitation = async (token: string) => {
+    const { data, error } = await supabase.rpc('accept_invitation', {
+        invite_token: token
+    });
+
+    if (error) throw error;
+    return data; // Returns group_id
 };
