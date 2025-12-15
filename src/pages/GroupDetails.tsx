@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Typography,
     CircularProgress,
@@ -31,7 +31,8 @@ const GroupDetails = () => {
     const navigate = useNavigate();
     const [tabValue, setTabValue] = useState(0);
     const [isInviteOpen, setIsInviteOpen] = useState(false);
-    const [inviteEmail, setInviteEmail] = useState('');
+    const [generatedLink, setGeneratedLink] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
     const { showError } = useUI();
 
     const { data: group, isLoading: isGroupLoading } = useQuery({
@@ -39,28 +40,26 @@ const GroupDetails = () => {
         queryFn: () => getGroupDetails(id!),
         enabled: !!id,
     });
-
     const { data: members = [], isLoading: isMembersLoading } = useQuery({
         queryKey: ['groupMembers', id],
         queryFn: () => getGroupMembers(id!),
         enabled: !!id,
     });
 
-    const inviteMutation = useMutation({
-        mutationFn: () => inviteMember(id!, inviteEmail),
-        onSuccess: () => {
-            toast.success('Invitation sent successfully');
-            setIsInviteOpen(false);
-            setInviteEmail('');
-        },
-        onError: (error: any) => {
-            showError('Failed to Send Invitation', error.message || 'An unexpected error occurred while sending the invitation.');
-        },
-    });
+    const queryClient = useQueryClient();
 
-    const handleInvite = () => {
-        if (!inviteEmail.trim()) return;
-        inviteMutation.mutate();
+    const handleInvite = async () => {
+        setIsGenerating(true);
+        try {
+            const invitation = await inviteMember(id!);
+            const inviteLink = `${window.location.origin}/join/${invitation.token}`;
+            setGeneratedLink(inviteLink);
+            queryClient.invalidateQueries({ queryKey: ['groupMembers', id] });
+        } catch (error: any) {
+            showError('Failed to Generate Invitation Link', error.message || 'An unexpected error occurred.');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     if (isGroupLoading || isMembersLoading) {
@@ -144,30 +143,54 @@ const GroupDetails = () => {
                 </div>
             )}
 
-            <Dialog open={isInviteOpen} onClose={() => setIsInviteOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={isInviteOpen} onClose={() => { setIsInviteOpen(false); setGeneratedLink(''); }} maxWidth="sm" fullWidth>
                 <DialogTitle>Invite Member</DialogTitle>
                 <DialogContent className="space-y-4 pt-4">
                     <Typography variant="body2" color="text.secondary">
-                        Enter the email address of the person you want to invite to this group.
+                        Generate a unique link to invite someone to this group.
+                        Anyone with this link can join.
                     </Typography>
-                    <TextField
-                        autoFocus
-                        label="Email Address"
-                        type="email"
-                        fullWidth
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                    />
+
+                    {generatedLink ? (
+                        <Box className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <Typography variant="subtitle2" className="mb-2 font-medium">
+                                Share this link:
+                            </Typography>
+                            <Box className="flex gap-2">
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    value={generatedLink}
+                                    InputProps={{
+                                        readOnly: true,
+                                    }}
+                                />
+                                <Button
+                                    variant="contained"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(generatedLink);
+                                        toast.success('Copied!');
+                                    }}
+                                >
+                                    Copy
+                                </Button>
+                            </Box>
+                        </Box>
+                    ) : (
+                        <Box className="flex justify-center py-4">
+                            <Button
+                                variant="contained"
+                                size="large"
+                                onClick={handleInvite}
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? <CircularProgress size={24} /> : 'Generate Invite Link'}
+                            </Button>
+                        </Box>
+                    )}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setIsInviteOpen(false)}>Cancel</Button>
-                    <Button
-                        onClick={handleInvite}
-                        variant="contained"
-                        disabled={!inviteEmail.trim() || inviteMutation.isPending}
-                    >
-                        {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
-                    </Button>
+                    <Button onClick={() => { setIsInviteOpen(false); setGeneratedLink(''); }}>Close</Button>
                 </DialogActions>
             </Dialog>
         </div>
